@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "sequence_count": 1,
+  "total_bases": 10,
+  "gc_bases": 4,
+  "n_bases": 2,
+  "ambiguous_bases": 0,
+  "minimum_length": 10,
+  "maximum_length": 10
+}
