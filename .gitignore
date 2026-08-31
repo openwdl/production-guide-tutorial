@@ -1,0 +1,23 @@
+# Rust
+/tools/ref-summary/target/
+
+# Local tools and release downloads
+/ref-summary
+/ref-summary.exe
+/ref-summary-*.tar.gz
+/ref-summary-*.zip
+/SHA256SUMS
+
+# Workflow execution and generated documentation
+/.sprocket/
+/work/
+/out/
+/output/
+/build/
+/test/
+/docs/generated/
+
+# Editors and operating systems
+.DS_Store
+.vscode/
+.idea/
