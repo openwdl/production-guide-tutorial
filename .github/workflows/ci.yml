@@ -1,0 +1,65 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Install Sprocket
+        uses: stjude-rust-labs/setup-sprocket@v1
+        with:
+          version: latest
+          github-token: ${{ github.token }}
+      - name: Build ref-summary image
+        run: docker build --tag ref-summary:v0.1.0 .
+      - name: Check WDL
+        run: |
+          sprocket format check wdl
+          sprocket lint wdl
+      - name: Test summarize_reference
+        run: |
+          sprocket dev test wdl/tasks/summarize_reference.wdl \
+            --workspace . \
+            --fixtures-dir "$PWD/tests/fixtures" \
+            --clean-all
+  deploy-docs:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Install Sprocket
+        uses: stjude-rust-labs/setup-sprocket@v1
+        with:
+          version: latest
+          github-token: ${{ github.token }}
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+      - name: Generate WDL documentation
+        run: |
+          sprocket dev doc wdl \
+            --output build/wdl-docs \
+            --overwrite \
+            --index-page docs/index.md \
+            --github-url "${{ github.server_url }}/${{ github.repository }}"
+      - name: Upload GitHub Pages site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/wdl-docs
+      - name: Deploy GitHub Pages site
+        id: deployment
+        uses: actions/deploy-pages@v5
