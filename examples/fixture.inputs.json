@@ -1,0 +1,16 @@
+{
+  "audit_references.references": [
+    {
+      "accession": "LOCAL.1",
+      "label": "single sequence",
+      "fasta": "../tests/fixtures/small-reference.fasta"
+    },
+    {
+      "accession": "LOCAL.2",
+      "label": "two sequences",
+      "fasta": "../tests/fixtures/two-sequence-reference.fasta"
+    }
+  ],
+  "audit_references.ref_summary_container": "ref-summary:v0.1.0",
+  "audit_references.emit_tsv": true
+}
