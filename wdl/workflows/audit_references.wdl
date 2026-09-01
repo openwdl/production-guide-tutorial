@@ -7,6 +7,22 @@ import "../tasks/validate_references.wdl" as validation
 import "../types.wdl"
 
 workflow audit_references {
+    meta {
+        description: "Validate and summarize ordered local reference FASTA files."
+        outputs: {
+            audit_json: "Canonical combined JSON audit report.",
+            audit_tsv: "Optional flat TSV report.",
+            summaries: "Ordered per-reference JSON metric files.",
+        }
+    }
+
+    parameter_meta {
+        references: "Ordered non-empty references to audit."
+        ref_summary_container: "Container image containing ref-summary."
+        ref_summary_version: "Version of ref-summary recorded in report provenance."
+        emit_tsv: "Whether to render the optional TSV report."
+    }
+
     input {
         Array[ReferenceFile]+ references
         String ref_summary_container = "ref-summary:v0.1.0"

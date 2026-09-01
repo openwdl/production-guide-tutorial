@@ -1,6 +1,22 @@
 version 1.3
 
 task aggregate_summaries {
+    meta {
+        description: "Combine ordered per-reference metrics into one versioned JSON report."
+        outputs: {
+            report: "Combined JSON audit report with ref-summary provenance.",
+        }
+    }
+
+    parameter_meta {
+        accessions_json: "JSON array of ordered stable reference identifiers."
+        labels_json: "JSON array of ordered unique report labels."
+        metrics: "Ordered JSON metric files emitted by ref-summary."
+        ref_summary_version: "Version of ref-summary used for the audit."
+        ref_summary_container: "Container image used to execute ref-summary."
+        container: "Container image containing Python."
+    }
+
     input {
         env String accessions_json
         env String labels_json
@@ -53,6 +69,18 @@ task aggregate_summaries {
 }
 
 task render_tsv {
+    meta {
+        description: "Convert a combined JSON audit report to a stable TSV artifact."
+        outputs: {
+            report_tsv: "Flat TSV audit report with one row per reference.",
+        }
+    }
+
+    parameter_meta {
+        report: "Combined JSON audit report."
+        container: "Container image containing Python."
+    }
+
     input {
         File report
         String container = "python:3.14-slim"

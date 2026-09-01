@@ -1,6 +1,19 @@
 version 1.3
 
 task validate_references {
+    meta {
+        description: "Reject mismatched, duplicate, or blank reference identifiers before analysis."
+        outputs: {
+            report: "JSON marker recording the number of validated references.",
+        }
+    }
+
+    parameter_meta {
+        accessions_json: "JSON array of ordered stable reference identifiers."
+        labels_json: "JSON array of ordered unique report labels."
+        container: "Container image containing Python."
+    }
+
     input {
         env String accessions_json
         env String labels_json

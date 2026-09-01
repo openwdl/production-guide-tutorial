@@ -1,6 +1,16 @@
 version 1.3
 
 struct ReferenceFile {
+    meta {
+        description: "A localized FASTA file and the stable identity preserved with it."
+    }
+
+    parameter_meta {
+        accession: "Stable reference identifier shown in audit reports."
+        label: "Unique human-readable name shown in audit reports."
+        fasta: "Uncompressed nucleotide FASTA file."
+    }
+
     String accession
     String label
     File fasta
