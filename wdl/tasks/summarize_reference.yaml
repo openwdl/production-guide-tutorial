@@ -1,0 +1,21 @@
+summarize_reference:
+  - name: valid-fasta
+    inputs:
+      fasta:
+        - small-reference.fasta
+      validation:
+        - validation.json
+    assertions:
+      outputs:
+        metrics_json:
+          - Name: summary.json
+  - name: malformed-fasta
+    inputs:
+      fasta:
+        - malformed.fasta
+      validation:
+        - validation.json
+    assertions:
+      should_fail: true
+      stderr:
+        - "invalid nucleotide symbol"
