@@ -1,0 +1,137 @@
+name: Release
+on:
+  push:
+    tags: ["v*.*.*"]
+permissions:
+  contents: read
+jobs:
+  binaries:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            executable: ref-summary
+            archive: tar
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            executable: ref-summary
+            archive: tar
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            executable: ref-summary
+            archive: tar
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            executable: ref-summary
+            archive: tar
+          - runner: windows-2022
+            target: x86_64-pc-windows-msvc
+            executable: ref-summary.exe
+            archive: zip
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Install Rust target
+        shell: bash
+        run: |
+          rustup toolchain install 1.98.1 --profile minimal
+          rustup default 1.98.1
+          rustup target add "${{ matrix.target }}"
+      - name: Build and test native executable
+        shell: bash
+        run: |
+          cargo test --manifest-path tools/ref-summary/Cargo.toml --locked
+          cargo build \
+            --manifest-path tools/ref-summary/Cargo.toml \
+            --locked \
+            --release \
+            --target "${{ matrix.target }}"
+          binary="tools/ref-summary/target/${{ matrix.target }}/release/${{ matrix.executable }}"
+          "$binary" tests/fixtures/small-reference.fasta --output native-summary.json
+          cmp tests/expected/small-reference.json native-summary.json
+      - name: Package native executable
+        shell: bash
+        run: |
+          mkdir -p dist/package
+          cp \
+            "tools/ref-summary/target/${{ matrix.target }}/release/${{ matrix.executable }}" \
+            dist/package/
+          if [[ "${{ matrix.archive }}" == "zip" ]]; then
+            7z a "dist/ref-summary-${GITHUB_REF_NAME}-${{ matrix.target }}.zip" ./dist/package/*
+          else
+            tar \
+              -C dist/package \
+              -czf "dist/ref-summary-${GITHUB_REF_NAME}-${{ matrix.target }}.tar.gz" \
+              "${{ matrix.executable }}"
+          fi
+      - name: Upload native executable
+        uses: actions/upload-artifact@v7
+        with:
+          name: ref-summary-${{ matrix.target }}
+          path: dist/ref-summary-*
+          if-no-files-found: error
+  publish:
+    needs: binaries
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Validate semantic version tag
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "tag must match vMAJOR.MINOR.PATCH" >&2
+            exit 1
+          fi
+      - name: Download native executables
+        uses: actions/download-artifact@v8
+        with:
+          pattern: ref-summary-*
+          path: dist
+          merge-multiple: true
+      - name: Create checksums
+        run: (cd dist && sha256sum ref-summary-* > SHA256SUMS)
+      - name: Register emulators
+        uses: docker/setup-qemu-action@v4
+      - name: Configure Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Publish versioned container image
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          version=${GITHUB_REF_NAME#v}
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ref-summary"
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --tag "$image:$version" \
+            --push .
+      - name: Compare native and published container output
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ref-summary:$version"
+          digest=$(docker buildx imagetools inspect \
+            "$image" \
+            --format '{{json .Manifest.Digest}}' | tr -d '"')
+          mkdir -p build/native
+          tar \
+            -C build/native \
+            -xzf "dist/ref-summary-${GITHUB_REF_NAME}-x86_64-unknown-linux-gnu.tar.gz"
+          build/native/ref-summary \
+            tests/fixtures/small-reference.fasta \
+            --output build/native-summary.json
+          docker run --rm \
+            --volume "$PWD/tests/fixtures:/data:ro" \
+            "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ref-summary@$digest" \
+            /data/small-reference.fasta \
+            > build/container-summary.json
+          cmp build/native-summary.json build/container-summary.json
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes dist/*
